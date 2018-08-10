@@ -89,21 +89,48 @@ CompileUtil = {
         }, vm.$data)
     },
     // 获取编译文本后的结果   
-    getTextVal(expr,vm){
-        return expr.replace(/\{\{([^}]+)\}\}/g,(...arguments)=>{           
-            return this.getVal(vm,arguments[1])
+    getTextVal(expr, vm) {
+        return expr.replace(/\{\{([^}]+)\}\}/g, (...arguments) => {
+            return this.getVal(vm, arguments[1])
         })
     },
     // 文本处理
     text(node, vm, expr) {
         let updaterFn = this.updater['textUpdater']
         // {{message.a}} =>[message, a]
-        let value = this.getTextVal(expr,vm)
+        let value = this.getTextVal(expr, vm)
+        expr.replace(/\{\{([^}]+)\}\}/g, (...arguments) => {
+
+            new Watcher(vm, arguments[1], () => {
+                // 如果数据变化了 文本节点需要重新获取依赖的属性更新文章
+                updaterFn && updaterFn(node, this.getTextVal(expr, vm))
+            })
+        })
+
         updaterFn && updaterFn(node, value)
+    },
+    setVal(vm, expr, value) {
+        expr = expr.split('.')
+        return expr.reduce((prev, next, currentIndex) => {
+            if (currentIndex === expr.length - 1) {
+                return prev[next] = value
+            }
+            return prev[next]
+        }, vm.$data)
     },
     // 输入框处理
     model(node, vm, expr) {
         let updaterFn = this.updater['modelUpdater']
+        // 这里应该加一个监控  数据变化调用
+        new Watcher(vm, expr, (newValue) => {
+            // 当值变化调用cb
+            updaterFn && updaterFn(node, this.getVal(vm, expr))
+        });
+        node.addEventListener('input', (e) => {
+            let newValue = e.target.value
+            this.setVal(vm, expr, newValue)
+
+        })
         updaterFn && updaterFn(node, this.getVal(vm, expr))
     },
     updater: {
@@ -112,7 +139,7 @@ CompileUtil = {
             node.textContent = value
         },
         // 输入框更新
-        modelUpdater(node, value) {           
+        modelUpdater(node, value) {
             node.value = value
         }
     }

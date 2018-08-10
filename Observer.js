@@ -19,10 +19,13 @@ class Observer {
     defineReactive(obj, key, value) {
         // 在获取某个值的时候 做些事情
         let that = this
+        // 每个变化的数据 都会对应一个数组
+        let dep = new Dep()
         Object.defineProperty(obj, key, {
             enumerable: true,
             configurable: true,
             get() { //当取值时调用的方法
+                Dep.target && dep.addSub(Dep.target)
                 return value
             },
             set(newVal) {  //当给data属性设置值时候  更改获取的属性的值
@@ -30,8 +33,22 @@ class Observer {
                     // 这里的this不是实例
                     that.observe(newVal)  //如果是对象继续劫持
                     value = newVal
+                    dep.notify() //通知所有人  数据更新
                 }
             }
         })
+    }
+}
+
+class Dep {
+    constructor() {
+        //订阅的数组
+        this.subs = []
+    }
+    addSub(watcher) {
+        this.subs.push(watcher)
+    }
+    notify() {
+        this.subs.forEach(watcher => watcher.update())
     }
 }
